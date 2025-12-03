@@ -1,0 +1,319 @@
+{
+    "name": "Chat AI Agent (Jarvis) - Fixed",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "chat-ai-agent",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "webhook-trigger",
+            "name": "Webhook - Message Received",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                250,
+                300
+            ],
+            "webhookId": "chat-ai-agent"
+        },
+        {
+            "parameters": {
+                "url": "=http://host.docker.internal:8001/api/context/{{ $json.body.room_id }}",
+                "options": {
+                    "queryParameters": {
+                        "parameters": [
+                            {
+                                "name": "limit",
+                                "value": "10"
+                            }
+                        ]
+                    }
+                }
+            },
+            "id": "get-context",
+            "name": "Get Conversation Context",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                450,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Decision logic: Should AI respond?\n// Get webhook data from the first node\nconst webhookData = $('Webhook - Message Received').item.json.body;\nconst message = webhookData.message.toLowerCase();\nconst author = webhookData.author;\nconst room_id = webhookData.room_id;\n\n// Get context from the previous node (Get Conversation Context)\nconst context = $input.first().json;\n\n// Don't respond to own messages\nif (author === 'Jarvis') {\n  return { shouldRespond: false, reason: 'Own message' };\n}\n\n// Check if last message was from AI (avoid consecutive AI messages)\nif (context.messages && context.messages.length > 0) {\n  const lastMsg = context.messages[context.messages.length - 1];\n  if (lastMsg.author === 'Jarvis') {\n    return { shouldRespond: false, reason: 'Last message was AI' };\n  }\n}\n\n// Check for trigger keywords\nconst triggers = [\n  'help', 'question', 'how', 'what', 'why', 'when', 'where',\n  'solar', 'wind', 'hydro', 'renewable', 'energy', 'power',\n  'efficiency', 'cost', 'installation', 'maintenance', 'battery',\n  'grid', 'panel', 'turbine', 'carbon', 'emission', 'geothermal',\n  'biomass', 'tidal', 'wave', 'nuclear', 'fusion'\n];\n\nlet hasKeyword = false;\nfor (const trigger of triggers) {\n  if (message.includes(trigger)) {\n    hasKeyword = true;\n    break;\n  }\n}\n\n// Check if it's a question\nconst isQuestion = message.includes('?');\n\n// Probabilistic response (30% chance if keyword found, 80% if question)\nlet probability = 0;\nif (isQuestion) {\n  probability = 0.8;\n} else if (hasKeyword) {\n  probability = 0.3;\n}\n\nconst randomValue = Math.random();\nconst shouldRespond = randomValue < probability;\n\nreturn {\n  shouldRespond,\n  probability,\n  randomValue,\n  hasKeyword,\n  isQuestion,\n  message: webhookData.message,\n  author: author,\n  room_id: room_id,\n  context: context.messages || []\n};"
+            },
+            "id": "decision-logic",
+            "name": "Decision: Should Respond?",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                650,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.shouldRespond }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "id": "if-should-respond",
+            "name": "IF Should Respond",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2,
+            "position": [
+                850,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Build prompt for Google Gemini\nconst context = $json.context || [];\nconst message = $json.message;\nconst author = $json.author;\n\n// Format recent conversation\nconst recentMessages = context.slice(-5).map(m => `${m.author}: ${m.content}`).join('\\n');\n\nconst prompt = `You are Jarvis, a knowledgeable and helpful renewable energy expert moderator in a chat room.\n\nGuidelines:\n- Stay concise and helpful - keep responses under 3-4 sentences unless asked for details.\n- Focus on: solar, wind, hydro, geothermal, biomass, energy storage, grid integration, and sustainability.\n- Provide accurate, up-to-date information about renewable energy technologies.\n- Be encouraging and supportive of clean energy adoption.\n- Keep a friendly, conversational tone like a helpful moderator.\n- Avoid being preachy - just provide facts and answer questions.\n\nRecent conversation:\n${recentMessages}\n\nCurrent message from ${author}:\n${message}\n\nRespond naturally as Jarvis:`;\n\nreturn {\n  prompt,\n  room_id: $json.room_id,\n  original_message: message,\n  author\n};"
+            },
+            "id": "build-prompt",
+            "name": "Build AI Prompt",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1050,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Build the request body for Google Gemini API\nconst prompt = $json.prompt;\nconst room_id = $json.room_id;\nconst author = $json.author;\n\nreturn {\n  requestBody: {\n    contents: [{\n      parts: [{\n        text: prompt\n      }]\n    }],\n    generationConfig: {\n      temperature: 0.7,\n      maxOutputTokens: 200\n    }\n  },\n  room_id,\n  author,\n  original_message: $json.original_message\n};"
+            },
+            "id": "prepare-gemini-request",
+            "name": "Prepare Gemini Request",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1250,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpQueryAuth",
+                "method": "POST",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify($json.requestBody) }}",
+                "options": {}
+            },
+            "id": "call-gemini",
+            "name": "Call Google Gemini API",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1450,
+                200
+            ],
+            "credentials": {
+                "httpQueryAuth": {
+                    "id": "gemini-api-key",
+                    "name": "Google Gemini API Key"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Extract AI response from Gemini API response\nconst response = $json.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not generate a response.';\n\nreturn {\n  response,\n  room_id: $('Prepare Gemini Request').item.json.room_id\n};"
+            },
+            "id": "extract-response",
+            "name": "Extract AI Response",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1650,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "url": "http://host.docker.internal:8001/api/ai-message",
+                "method": "POST",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "room_id",
+                            "value": "={{ $json.room_id }}"
+                        },
+                        {
+                            "name": "content",
+                            "value": "={{ $json.response }}"
+                        },
+                        {
+                            "name": "author",
+                            "value": "Jarvis"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "post-ai-message",
+            "name": "Post AI Message to Chat",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1850,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ { \"status\": \"processed\", \"responded\": true } }}"
+            },
+            "id": "respond-webhook-yes",
+            "name": "Respond: AI Sent",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [
+                2050,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ { \"status\": \"processed\", \"responded\": false } }}"
+            },
+            "id": "respond-webhook-no",
+            "name": "Respond: No AI",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [
+                1050,
+                400
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook - Message Received": {
+            "main": [
+                [
+                    {
+                        "node": "Get Conversation Context",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Conversation Context": {
+            "main": [
+                [
+                    {
+                        "node": "Decision: Should Respond?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Decision: Should Respond?": {
+            "main": [
+                [
+                    {
+                        "node": "IF Should Respond",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "IF Should Respond": {
+            "main": [
+                [
+                    {
+                        "node": "Build AI Prompt",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Respond: No AI",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build AI Prompt": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Gemini Request",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Gemini Request": {
+            "main": [
+                [
+                    {
+                        "node": "Call Google Gemini API",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Call Google Gemini API": {
+            "main": [
+                [
+                    {
+                        "node": "Extract AI Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract AI Response": {
+            "main": [
+                [
+                    {
+                        "node": "Post AI Message to Chat",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Post AI Message to Chat": {
+            "main": [
+                [
+                    {
+                        "node": "Respond: AI Sent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "staticData": null,
+    "tags": [],
+    "triggerCount": 1,
+    "updatedAt": "2024-12-03T09:38:00.000Z",
+    "versionId": "2"
+}

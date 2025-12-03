@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoChat - Renewable Energy Community</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div id="app">
+        <!-- Landing Page -->
+        <div id="landing-screen" class="screen active">
+            <div class="landing-background">
+                <div class="gradient-orb orb-1"></div>
+                <div class="gradient-orb orb-2"></div>
+                <div class="gradient-orb orb-3"></div>
+            </div>
+            <div class="landing-container">
+                <div class="landing-hero">
+                    <div class="logo-icon">⚡</div>
+                    <h1>EcoChat</h1>
+                    <p class="hero-tagline">AI-Powered Renewable Energy Community</p>
+                    <button id="get-started-btn" class="primary-btn">
+                        <span>Get Started</span>
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">💬</div>
+                        <h3>Real-Time Chat</h3>
+                        <p>Connect with renewable energy enthusiasts in real-time conversations</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">✨</div>
+                        <h3>AI Assistant</h3>
+                        <p>Get intelligent insights from our AI agent powered by N8N workflows</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🏠</div>
+                        <h3>Custom Rooms</h3>
+                        <p>Create your own chat rooms for specific energy topics</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">⚡</div>
+                        <h3>Multi-Browser Sync</h3>
+                        <p>Seamless synchronization across all your devices</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Login Screen -->
+        <div id="login-screen" class="screen">
+            <div class="login-background">
+                <div class="gradient-orb orb-1"></div>
+                <div class="gradient-orb orb-2"></div>
+                <div class="gradient-orb orb-3"></div>
+            </div>
+            <div class="login-container">
+                <div class="logo">
+                    <div class="logo-icon">⚡</div>
+                    <h1>EcoChat</h1>
+                    <p class="tagline">Renewable Energy Community</p>
+                </div>
+                <div class="login-card">
+                    <h2>Welcome Back</h2>
+                    <p class="subtitle">Join the conversation about sustainable energy</p>
+                    <input type="text" id="username-input" placeholder="Enter your username" />
+                    <button id="login-btn" class="primary-btn">
+                        <span>Join Community</span>
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Chat Interface -->
+        <div id="chat-screen" class="screen">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <div class="brand">
+                        <div class="brand-icon">⚡</div>
+                        <span class="brand-name">EcoChat</span>
+                    </div>
+                    <div class="user-info">
+                        <div class="user-avatar">
+                            <span id="user-initial"></span>
+                        </div>
+                        <span id="current-user" class="username"></span>
+                    </div>
+                </div>
+
+                <div class="rooms-section">
+                    <div class="section-header">
+                        <h3 class="section-title">Chat Rooms</h3>
+                        <button id="create-room-btn" class="icon-btn" title="Create Room">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M10 4V16M4 10H16" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="rooms-list" class="rooms-list"></div>
+                    <div id="empty-rooms" class="empty-state">
+                        <div class="empty-icon">🏠</div>
+                        <p>No rooms yet</p>
+                        <button class="create-first-room-btn">Create your first room</button>
+                    </div>
+                </div>
+
+                <button id="logout-btn" class="logout-btn">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path
+                            d="M7.5 17.5H4.16667C3.72464 17.5 3.30072 17.3244 2.98816 17.0118C2.67559 16.6993 2.5 16.2754 2.5 15.8333V4.16667C2.5 3.72464 2.67559 3.30072 2.98816 2.98816C3.30072 2.67559 3.72464 2.5 4.16667 2.5H7.5M13.3333 14.1667L17.5 10M17.5 10L13.3333 5.83333M17.5 10H7.5"
+                            stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <span>Logout</span>
+                </button>
+            </div>
+
+            <!-- Chat Container -->
+            <div class="chat-container">
+                <div class="chat-header">
+                    <div class="room-info">
+                        <h2 id="room-title">Select a room</h2>
+                        <div id="room-users" class="room-users"></div>
+                    </div>
+                    <button id="delete-room-btn" class="icon-btn danger-btn" title="Delete Room" style="display: none;">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path
+                                d="M2.5 5H4.16667M4.16667 5H17.5M4.16667 5V16.6667C4.16667 17.1087 4.34226 17.5326 4.65482 17.8452C4.96738 18.1577 5.39131 18.3333 5.83333 18.3333H14.1667C14.6087 18.3333 15.0326 18.1577 15.3452 17.8452C15.6577 17.5326 15.8333 17.1087 15.8333 16.6667V5H4.16667ZM6.66667 5V3.33333C6.66667 2.89131 6.84226 2.46738 7.15482 2.15482C7.46738 1.84226 7.89131 1.66667 8.33333 1.66667H11.6667C12.1087 1.66667 12.5326 1.84226 12.8452 2.15482C13.1577 2.46738 13.3333 2.89131 13.3333 3.33333V5"
+                                stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                </div>
+                <div id="messages" class="messages"></div>
+                <div class="input-container">
+                    <input type="text" id="message-input" placeholder="Type your message..." />
+                    <button id="send-btn" class="send-btn">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                            <path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Room Modal -->
+    <div id="create-room-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create New Room</h2>
+                <button class="close-modal-btn">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="room-name-input">Room Name</label>
+                    <input type="text" id="room-name-input" placeholder="e.g., Solar Energy Discussion" />
+                </div>
+                <div class="form-group">
+                    <label for="room-description-input">Description</label>
+                    <textarea id="room-description-input" placeholder="What's this room about?" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="secondary-btn cancel-btn">Cancel</button>
+                <button id="confirm-create-room-btn" class="primary-btn">
+                    <span>Create Room</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
