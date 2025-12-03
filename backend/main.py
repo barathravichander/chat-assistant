@@ -18,7 +18,7 @@ from ai_agent import AIAgent
 # Load environment variables
 load_dotenv()
 
-app = FastAPI(title="Renewable Energy Chat API")
+app = FastAPI(title="RE Assistant API")
 
 # CORS middleware
 app.add_middleware(
@@ -35,7 +35,7 @@ messages: Dict[int, List[Message]] = {}
 room_id_counter = 1
 active_connections: Dict[str, WebSocket] = {}
 
-# Initialize AI Agent with Phi/Agno + Google Gemini
+# Initialize AI Agent with Phi/Agno + Google Gemini, Currently setup done for Google Key. 
 try:
     ai_agent = AIAgent(api_key=os.getenv("GOOGLE_API_KEY"))
     print("[OK] AI Agent initialized with Phi framework + Google Gemini")
@@ -45,7 +45,7 @@ except Exception as e:
 
 @app.get("/")
 async def root():
-    return {"message": "Renewable Energy Chat API", "status": "running"}
+    return {"message": "REChat API", "status": "running"}
 
 @app.get("/rooms")
 async def get_rooms():
