@@ -38,9 +38,9 @@ active_connections: Dict[str, WebSocket] = {}
 # Initialize AI Agent with Phi/Agno + Google Gemini
 try:
     ai_agent = AIAgent(api_key=os.getenv("GOOGLE_API_KEY"))
-    print("✓ AI Agent initialized with Phi framework + Google Gemini")
+    print("[OK] AI Agent initialized with Phi framework + Google Gemini")
 except Exception as e:
-    print(f"⚠ Warning: AI Agent initialization failed: {e}")
+    print(f"[WARN] Warning: AI Agent initialization failed: {e}")
     ai_agent = None
 
 @app.get("/")
@@ -162,7 +162,7 @@ async def send_message(request: SendMessageRequest):
     
     # Trigger N8N workflow if AI should potentially respond
     if ai_agent and ai_agent.should_respond(request.content):
-        print(f"🤖 AI should respond to: '{request.content}'")
+        print(f"[AI] AI should respond to: '{request.content}'")
         # Try N8N workflow first
         n8n_webhook_url = os.getenv("N8N_WEBHOOK_URL")
         print(f"   N8N_WEBHOOK_URL from env: {n8n_webhook_url}")
@@ -366,7 +366,7 @@ async def broadcast_message(room_id: int, message: Message):
 async def trigger_n8n_workflow(webhook_url: str, room_id: int, message: str, author: str, timestamp: datetime):
     """Trigger N8N workflow via webhook"""
     try:
-        print(f"🔔 Triggering N8N workflow for message: '{message}' from {author} in room {room_id}")
+        print(f"[N8N] Triggering N8N workflow for message: '{message}' from {author} in room {room_id}")
         print(f"   Webhook URL: {webhook_url}")
         
         async with httpx.AsyncClient(timeout=5.0) as client:
@@ -379,10 +379,10 @@ async def trigger_n8n_workflow(webhook_url: str, room_id: int, message: str, aut
             print(f"   Payload: {payload}")
             
             response = await client.post(webhook_url, json=payload)
-            print(f"   ✅ N8N responded with status: {response.status_code}")
+            print(f"   [OK] N8N responded with status: {response.status_code}")
             print(f"   Response: {response.text[:200]}")
     except Exception as e:
-        print(f"   ❌ Error triggering N8N workflow: {e}")
+        print(f"   [ERROR] Error triggering N8N workflow: {e}")
 
 if __name__ == "__main__":
     import uvicorn

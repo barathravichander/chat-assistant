@@ -19,7 +19,7 @@ This guide explains how to set up the N8N workflow for the **Jarvis** AI moderat
 
 ### Step 2: Configure Google API Key
 
-1. In the workflow, click on the **"Call Google Gemini API"** node (it might have a ⚠️ warning)
+1. In the workflow, click on the **"Call Google Gemini API"** node (it might have a warning icon)
 2. Click **"Credential to connect with"** dropdown
 3. Click **"Create New Credential"**
 4. Select **"Query Auth"** as the credential type
@@ -32,7 +32,7 @@ This guide explains how to set up the N8N workflow for the **Jarvis** AI moderat
 ### Step 3: Activate the Workflow
 
 1. Toggle the **"Active"** switch to **ON** (top right corner)
-2. The workflow should now show as ▶️ **Active**
+2. The workflow should now show as **Active**
 
 ## Verification
 
