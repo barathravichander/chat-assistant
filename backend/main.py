@@ -14,6 +14,7 @@ from models import (
     CreateRoomRequest, AIMessageRequest, ContextResponse, ContextMessage
 )
 from ai_agent import AIAgent
+from vector_store import VectorStore
 
 # Load environment variables
 load_dotenv()
@@ -42,6 +43,21 @@ try:
 except Exception as e:
     print(f"[WARN] Warning: AI Agent initialization failed: {e}")
     ai_agent = None
+
+# Initialize Vector Store for RAG
+vector_store = None
+try:
+    milvus_host = os.getenv("MILVUS_HOST", "localhost")
+    milvus_port = os.getenv("MILVUS_PORT", "19530")
+    vector_store = VectorStore(
+        host=milvus_host,
+        port=milvus_port,
+        api_key=os.getenv("GOOGLE_API_KEY")
+    )
+    print(f"[OK] Vector Store initialized (Milvus at {milvus_host}:{milvus_port})")
+except Exception as e:
+    print(f"[WARN] Vector Store initialization failed (RAG disabled): {e}")
+    vector_store = None
 
 @app.get("/")
 async def root():
@@ -157,6 +173,20 @@ async def send_message(request: SendMessageRequest):
     )
     messages[request.room_id].append(user_msg)
     
+    # Store message in vector store for RAG
+    if vector_store:
+        try:
+            vector_store.add_message(
+                message_id=user_msg.id,
+                room_id=request.room_id,
+                author=request.username,
+                content=request.content,
+                timestamp=user_msg.timestamp,
+                message_type="user"
+            )
+        except Exception as e:
+            print(f"[WARN] Failed to store message in vector store: {e}")
+    
     # Broadcast user message
     await broadcast_message(request.room_id, user_msg)
     
@@ -202,8 +232,40 @@ Guidelines:
 - Be helpful and encouraging
 - Provide accurate information"""
                     
+                    # Get RAG context from vector store (chat history + documents)
+                    rag_context = ""
+                    doc_context = ""
+                    if vector_store:
+                        try:
+                            rag_context = vector_store.get_context_for_query(
+                                query=request.content,
+                                room_id=request.room_id,
+                                n_results=3
+                            )
+                            if rag_context:
+                                print(f"[RAG] Retrieved chat context: {rag_context[:100]}...")
+                        except Exception as rag_err:
+                            print(f"[WARN] RAG retrieval failed: {rag_err}")
+                        
+                        # Also get document context
+                        try:
+                            doc_context = vector_store.get_document_context(
+                                query=request.content,
+                                n_results=3
+                            )
+                            if doc_context:
+                                print(f"[RAG] Retrieved document context: {doc_context[:100]}...")
+                        except Exception as doc_err:
+                            print(f"[WARN] Document retrieval failed: {doc_err}")
+                    
                     context_str = "\n".join([f"{msg['author']}: {msg['content']}" for msg in context[-5:]])
-                    prompt = f"{system_prompt}\n\nRecent conversation:\n{context_str}\n\nRespond to: {request.content}"
+                    
+                    # Build prompt with RAG context (documents + chat history)
+                    combined_context = "\n\n".join(filter(None, [doc_context, rag_context]))
+                    if combined_context:
+                        prompt = f"{system_prompt}\n\n{combined_context}\n\nRecent conversation:\n{context_str}\n\nRespond to: {request.content}"
+                    else:
+                        prompt = f"{system_prompt}\n\nRecent conversation:\n{context_str}\n\nRespond to: {request.content}"
                     
                     response = model.generate_content(prompt)
                     ai_response = response.text
@@ -246,8 +308,40 @@ Guidelines:
 - Be helpful and encouraging
 - Provide accurate information"""
                 
+                # Get RAG context from vector store (chat history + documents)
+                rag_context = ""
+                doc_context = ""
+                if vector_store:
+                    try:
+                        rag_context = vector_store.get_context_for_query(
+                            query=request.content,
+                            room_id=request.room_id,
+                            n_results=3
+                        )
+                        if rag_context:
+                            print(f"[RAG] Retrieved chat context: {rag_context[:100]}...")
+                    except Exception as rag_err:
+                        print(f"[WARN] RAG retrieval failed: {rag_err}")
+                    
+                    # Also get document context
+                    try:
+                        doc_context = vector_store.get_document_context(
+                            query=request.content,
+                            n_results=3
+                        )
+                        if doc_context:
+                            print(f"[RAG] Retrieved document context: {doc_context[:100]}...")
+                    except Exception as doc_err:
+                        print(f"[WARN] Document retrieval failed: {doc_err}")
+                
                 context_str = "\n".join([f"{msg['author']}: {msg['content']}" for msg in context[-5:]])
-                prompt = f"{system_prompt}\n\nRecent conversation:\n{context_str}\n\nRespond to: {request.content}"
+                
+                # Build prompt with RAG context (documents + chat history)
+                combined_context = "\n\n".join(filter(None, [doc_context, rag_context]))
+                if combined_context:
+                    prompt = f"{system_prompt}\n\n{combined_context}\n\nRecent conversation:\n{context_str}\n\nRespond to: {request.content}"
+                else:
+                    prompt = f"{system_prompt}\n\nRecent conversation:\n{context_str}\n\nRespond to: {request.content}"
                 
                 response = model.generate_content(prompt)
                 ai_response = response.text
@@ -318,6 +412,102 @@ async def receive_ai_message(request: AIMessageRequest):
     await broadcast_message(request.room_id, ai_msg)
     
     return {"status": "sent", "message": ai_msg}
+
+
+# ==================== Document API Endpoints ====================
+
+@app.post("/api/documents/ingest")
+async def ingest_documents():
+    """Trigger document ingestion from Files folder"""
+    if not vector_store:
+        raise HTTPException(status_code=503, detail="Vector store not available")
+    
+    try:
+        from document_processor import DocumentProcessor
+        
+        # Get Files directory path
+        files_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Files")
+        
+        if not os.path.isdir(files_dir):
+            raise HTTPException(status_code=404, detail=f"Files directory not found: {files_dir}")
+        
+        # Find PDF files
+        pdf_files = [f for f in os.listdir(files_dir) if f.lower().endswith('.pdf')]
+        
+        if not pdf_files:
+            return {"status": "no_files", "message": "No PDF files found in Files directory"}
+        
+        # Process documents
+        processor = DocumentProcessor(chunk_size=500, chunk_overlap=50)
+        
+        total_chunks = 0
+        processed_docs = []
+        
+        for pdf_file in pdf_files:
+            pdf_path = os.path.join(files_dir, pdf_file)
+            try:
+                chunks = processor.process_pdf(pdf_path)
+                
+                stored = 0
+                for chunk in chunks:
+                    success = vector_store.add_document_chunk(
+                        chunk_id=chunk.id,
+                        doc_name=chunk.doc_name,
+                        chunk_index=chunk.chunk_index,
+                        page_num=chunk.page_num,
+                        content=chunk.content,
+                        created_at=chunk.created_at.isoformat()
+                    )
+                    if success:
+                        stored += 1
+                
+                total_chunks += stored
+                processed_docs.append({"file": pdf_file, "chunks": stored})
+                
+            except Exception as e:
+                processed_docs.append({"file": pdf_file, "error": str(e)})
+        
+        # Flush to persist
+        vector_store.flush_documents()
+        
+        return {
+            "status": "completed",
+            "total_chunks": total_chunks,
+            "documents": processed_docs
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
+
+
+@app.get("/api/documents/search")
+async def search_documents(query: str, limit: int = 5):
+    """Search documents by semantic query"""
+    if not vector_store:
+        raise HTTPException(status_code=503, detail="Vector store not available")
+    
+    try:
+        results = vector_store.search_documents(query=query, n_results=limit)
+        return {
+            "query": query,
+            "results": results,
+            "count": len(results)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+
+@app.get("/api/documents/stats")
+async def get_document_stats():
+    """Get document store statistics"""
+    if not vector_store:
+        raise HTTPException(status_code=503, detail="Vector store not available")
+    
+    try:
+        stats = vector_store.get_stats()
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
 
 @app.websocket("/ws/{username}")
 async def websocket_endpoint(websocket: WebSocket, username: str):

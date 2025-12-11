@@ -24,3 +24,6 @@ Thumbs.db
 
 # N8N
 .n8n/
+
+# Uploaded files
+Files/

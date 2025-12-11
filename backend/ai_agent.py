@@ -37,9 +37,48 @@ Guidelines:
     
     def should_respond(self, message: str) -> bool:
         """
-        Determine if the AI should respond to a message.
-        Responds to questions or messages containing trigger keywords.
+        Use AI to intelligently determine if the message warrants a response.
+        Considers: intent, topic relevance, conversation context, and user needs.
         """
+        # Skip very short messages
+        if len(message.strip()) < 3:
+            return False
+        
+        # Use AI to classify the message intent
+        try:
+            classification_prompt = f"""Analyze this message and determine if an AI renewable energy assistant should respond.
+
+Message: "{message}"
+
+Respond with ONLY "YES" or "NO" based on these criteria:
+- YES if: asking a question, seeking information, requesting help, discussing energy/sustainability topics, showing confusion, asking for explanation, or engaging in meaningful dialogue
+- NO if: simple greetings (hi, hello, bye), acknowledgments (ok, thanks, got it), off-topic casual chat, or messages clearly not seeking AI input
+
+Your response (YES or NO only):"""
+
+            response = self.model.generate_content(
+                classification_prompt,
+                generation_config=genai.types.GenerationConfig(
+                    max_output_tokens=10,
+                    temperature=0.1
+                )
+            )
+            
+            result = response.text.strip().upper()
+            should_respond = "YES" in result
+            
+            # Log the decision for debugging
+            print(f"[AI Agent] Message: '{message[:50]}...' → Respond: {should_respond}")
+            
+            return should_respond
+            
+        except Exception as e:
+            print(f"[AI Agent] Classification error: {e}, falling back to keyword matching")
+            # Fallback to simple keyword matching if AI fails
+            return self._keyword_based_check(message)
+    
+    def _keyword_based_check(self, message: str) -> bool:
+        """Fallback keyword-based response check."""
         message_lower = message.lower()
         
         # Check if it's a question
